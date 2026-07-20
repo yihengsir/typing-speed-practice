@@ -1258,13 +1258,29 @@
             // 忽略长按键
             if (e.repeat) return;
             
+            // 空格直接跳到下一个单词
+            if (e.key === ' ' || e.code === 'Space') {
+                handleSpaceSkip();
+                return;
+            }
+
+            // 兼容中英文输入法下的常用标点（尤其是逗号、句号）
+            const punctuationMap = {
+                '，': ',', '。': '.', '；': ';', '：': ':',
+                '！': '!', '？': '?', '“': '"', '”': '"',
+                '‘': "'", '’': "'", '（': '(', '）': ')'
+            };
+            let inputKey = punctuationMap[e.key] || e.key;
+            if (e.code === 'Comma') inputKey = e.shiftKey ? '<' : ',';
+            if (e.code === 'Period') inputKey = e.shiftKey ? '>' : '.';
+
             // 处理普通字符
-            if (e.key.length === 1) {
+            if (inputKey.length === 1) {
                 const currentChar = currentText[currentIndex];
                 const charSpan = textDisplay.children[currentIndex];
                 
                 // 检查输入是否正确
-                if (e.key === currentChar) {
+                if (inputKey === (punctuationMap[currentChar] || currentChar)) {
                     charSpan.classList.remove('current', 'incorrect');
                     charSpan.classList.add('correct');
                     correctChars++;
@@ -1296,6 +1312,43 @@
                 }
             }
         });
+
+        // 跳过当前单词的剩余内容及其后的空白，定位到下一个单词
+        function handleSpaceSkip() {
+            let nextIndex = currentIndex;
+
+            while (nextIndex < currentText.length && !/\s/.test(currentText[nextIndex])) {
+                const charSpan = textDisplay.children[nextIndex];
+                charSpan.classList.remove('current', 'correct');
+                if (!charSpan.classList.contains('incorrect')) {
+                    charSpan.classList.add('incorrect');
+                    errors++;
+                }
+                nextIndex++;
+            }
+
+            while (nextIndex < currentText.length && /\s/.test(currentText[nextIndex])) {
+                const charSpan = textDisplay.children[nextIndex];
+                charSpan.classList.remove('current', 'incorrect');
+                charSpan.classList.add('correct');
+                correctChars++;
+                nextIndex++;
+            }
+
+            currentIndex = nextIndex;
+            errorsStat.textContent = errors;
+
+            if (currentIndex < currentText.length) {
+                textDisplay.children[currentIndex].classList.add('current');
+            }
+
+            progressBar.style.width = `${(currentIndex / totalChars) * 100}%`;
+            calculateStats();
+
+            if (currentIndex >= totalChars) {
+                finishPractice();
+            }
+        }
         
         // 处理退格键
         function handleBackspace() {
